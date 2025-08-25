@@ -6,7 +6,7 @@ describe Sidekiq::Batch::Callback::Worker do
       subject.perform('SampleCallback', 'complete', {}, 'ABCD', 'EFGH')
     end
 
-    it 'does not do anything if event is different from complete or success' do
+    it 'does not do anything if event is different from complete, success, or death' do
       expect(SampleCallback).not_to receive(:new)
       subject.perform('SampleCallback', 'ups', {}, 'ABCD', 'EFGH')
     end
@@ -33,6 +33,14 @@ describe Sidekiq::Batch::Callback::Worker do
       expect(callback_instance).to receive(:sample_method)
         .with(instance_of(Sidekiq::Batch::Status), {})
       subject.perform('SampleCallback#sample_method', 'complete', {}, 'ABCD', 'EFGH')
+    end
+
+    it 'calls on_death if defined' do
+      callback_instance = double('SampleCallback')
+      expect(SampleCallback).to receive(:new).and_return(callback_instance)
+      expect(callback_instance).to receive(:on_death)
+        .with(instance_of(Sidekiq::Batch::Status), {})
+      subject.perform('SampleCallback', 'death', {}, 'ABCD', 'EFGH')
     end
   end
 end

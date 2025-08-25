@@ -93,11 +93,14 @@ describe Sidekiq::Batch::Middleware do
 
   context 'server' do
     let(:server_middleware) { double(Sidekiq::Middleware::Chain) }
+    let(:death_handlers) { double("death_handlers") }
 
     it 'adds client and server middleware' do
       expect(Sidekiq).to receive(:configure_server).and_yield(config)
       expect(config).to receive(:client_middleware).and_yield(client_middleware)
       expect(config).to receive(:server_middleware).and_yield(server_middleware)
+      expect(config).to receive(:death_handlers).and_return(death_handlers)
+      expect(death_handlers).to receive(:<<).with(instance_of(Proc))
       expect(client_middleware).to receive(:add).with(Sidekiq::Batch::Middleware::ClientMiddleware)
       expect(server_middleware).to receive(:add).with(Sidekiq::Batch::Middleware::ServerMiddleware)
       Sidekiq::Batch::Middleware.configure

@@ -45,6 +45,11 @@ module Sidekiq
           config.server_middleware do |chain|
             chain.add Sidekiq::Batch::Middleware::ServerMiddleware
           end
+          config.death_handlers << ->(job, ex) do
+            if (bid = job["bid"])
+              Batch.process_dead_job(bid, job["jid"])
+            end
+          end
         end
         Sidekiq::Worker.send(:include, Sidekiq::Batch::Extension::Worker)
       end

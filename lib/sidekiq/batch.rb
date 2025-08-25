@@ -43,7 +43,7 @@ module Sidekiq
     end
 
     def on(event, callback, options = {})
-      return unless %w(success complete).include?(event.to_s)
+      return unless %w(success complete death).include?(event.to_s)
       callback_key = "#{@bidkey}-callbacks-#{event}"
       Sidekiq.redis do |r|
         r.multi do |pipeline|
@@ -242,6 +242,10 @@ module Sidekiq
           enqueue_callbacks(:complete, bid)
           enqueue_callbacks(:success, bid) if all_success
         end
+      end
+
+      def process_dead_job(bid, jid)
+        enqueue_callbacks(:death, bid)
       end
 
       def enqueue_callbacks(event, bid)

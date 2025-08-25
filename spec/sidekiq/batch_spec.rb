@@ -208,6 +208,17 @@ describe Sidekiq::Batch do
     end
   end
 
+  describe '#process_dead_job' do
+    let(:batch) { Sidekiq::Batch.new }
+    let(:bid) { batch.bid }
+    let(:jid) { 'DEAD-JOB-ID' }
+
+    it 'calls enqueue_callbacks with death event' do
+      expect(Sidekiq::Batch).to receive(:enqueue_callbacks).with(:death, bid)
+      Sidekiq::Batch.process_dead_job(bid, jid)
+    end
+  end
+
   describe '#increment_job_queue' do
     let(:bid) { 'BID' }
     let(:batch) { Sidekiq::Batch.new }

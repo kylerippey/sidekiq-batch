@@ -5,7 +5,7 @@ module Sidekiq
         include Sidekiq::Worker
 
         def perform(clazz, event, opts, bid, parent_bid)
-          return unless %w(success complete).include?(event)
+          return unless %w(success complete death).include?(event)
           clazz, method = clazz.split("#") if (clazz && clazz.class == String && clazz.include?("#"))
           method = "on_#{event}" if method.nil?
           status = Sidekiq::Batch::Status.new(bid)
