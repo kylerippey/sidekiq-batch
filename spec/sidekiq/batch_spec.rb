@@ -217,6 +217,12 @@ describe Sidekiq::Batch do
       expect(Sidekiq::Batch).to receive(:enqueue_callbacks).with(:death, bid)
       Sidekiq::Batch.process_dead_job(bid, jid)
     end
+
+    it 'completes without error when no death callbacks are defined' do
+      # This ensures the death finalization works even without user callbacks
+      # (tests the bug fix where Finalize#death was missing)
+      expect { Sidekiq::Batch.process_dead_job(bid, jid) }.not_to raise_error
+    end
   end
 
   describe '#increment_job_queue' do

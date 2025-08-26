@@ -94,6 +94,12 @@ module Sidekiq
           end
         end
 
+        def death(bid, status, parent_bid)
+          # Death callback is triggered when a job permanently fails after all retries
+          # Unlike success/complete, we don't need to trigger parent callbacks
+          # or update completion counters since the job has already been marked as failed
+        end
+
         def cleanup_redis bid, callback_bid=nil
           Sidekiq::Batch.cleanup_redis bid
           Sidekiq::Batch.cleanup_redis callback_bid if callback_bid
