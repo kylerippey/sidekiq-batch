@@ -315,6 +315,7 @@ module Sidekiq
             "BID-#{bid}",
             "BID-#{bid}-callbacks-complete",
             "BID-#{bid}-callbacks-success",
+            "BID-#{bid}-callbacks-death",
             "BID-#{bid}-failed",
 
             "BID-#{bid}-success",
