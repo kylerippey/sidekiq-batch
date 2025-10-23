@@ -301,4 +301,51 @@ describe Sidekiq::Batch do
       end
     end
   end
+
+  describe 'job failure then retry success scenario' do
+    it 'fires on_success callback when jobs fail then retry successfully' do
+      # Setup: Create batch with 2 jobs
+      batch = Sidekiq::Batch.new
+      batch.on(:complete, SampleCallback)
+      batch.on(:success, SampleCallback)
+
+      batch.jobs do
+        Sidekiq.redis { |r| r.hincrby("BID-#{batch.bid}", "pending", 2) }
+        Sidekiq.redis { |r| r.hincrby("BID-#{batch.bid}", "total", 2) }
+      end
+
+      # One job succeeds, one job fails
+      Sidekiq::Batch.process_successful_job(batch.bid, "jid-success")
+
+      # Simulate job failure in middleware context where Thread.current[:batch] is still set
+      # (it only gets cleared in the ensure block AFTER the rescue block runs)
+      Thread.current[:batch] = batch
+      Sidekiq::Batch.process_failed_job(batch.bid, "jid-fail")
+      Thread.current[:batch] = nil
+      # This creates a callback batch as a child of the main batch
+
+      # Find the callback batch (it has our batch as its parent)
+      callback_batch_bid = Sidekiq.redis { |r| r.keys("BID-*") }
+        .reject { |k| k =~ /-(callbacks|failed|success|complete|jids)/ }
+        .map { |k| k.sub("BID-", "") }
+        .find { |bid| bid != batch.bid && Sidekiq.redis { |r| r.hget("BID-#{bid}", "parent_bid") } == batch.bid }
+
+      # Complete the callback batch
+      Sidekiq.redis { |r| r.smembers("BID-#{callback_batch_bid}-jids") }.each do |jid|
+        Sidekiq::Batch::Middleware::ServerMiddleware.new.call(nil, {"bid" => callback_batch_bid, "jid" => jid}, nil) { }
+      end
+
+      # Without the fix: callback batch is NOT in parent's success set (children=1, success=0)
+      # With the fix: callback batch IS in parent's success set (children=1, success=1)
+      success_count = Sidekiq.redis { |r| r.scard("BID-#{batch.bid}-success") }
+      expect(success_count).to eq(1)
+
+      # Failed job retries and succeeds
+      Sidekiq::Batch.process_successful_job(batch.bid, "jid-fail")
+
+      # Verify on_success callback was enqueued
+      success_enqueued = Sidekiq.redis { |r| r.hget("BID-#{batch.bid}", "success") }
+      expect(success_enqueued).to eq("true")
+    end
+  end
 end

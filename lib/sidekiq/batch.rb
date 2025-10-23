@@ -282,6 +282,15 @@ module Sidekiq
           status = Status.new bid
           finalizer.dispatch(status, cb_opts)
 
+          # After finalizing the main batch's callbacks, mark this callback batch as successful
+          # in its parent batch (if it has one). This is needed because callback batches created
+          # during job failures become children of the main batch (due to Thread.current[:batch]
+          # still being set in the rescue block), but they never go through the normal success
+          # flow that would mark them as successful in their parent.
+          if event_name == "complete" && parent_bid
+            finalizer.success(bid, status, parent_bid)
+          end
+
           return
         end
 
